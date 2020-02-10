@@ -1,0 +1,125 @@
+---
+title: Exploration of the U.S. National Oceanic and Atmospheric Administration's (NOAA)
+  storm database to address questions about severe weather events
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database to answer two questions:
+
+1. Across the United States, which types of events are most harmful with respect to population health?
+2. Across the United States, which types of events have the greatest economic consequences?
+
+The data used for this project was downloaded from: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 on 20/06/2019.
+
+## Data Processing
+```{r, echo=TRUE}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+# Load the dataset and analyse the variables
+setwd("~/Documents/MOOCs/Data Specialization/5_Reproducible_Research/Project 2")
+storm <- read.csv("repdata_data_StormData.csv")
+names(storm)
+str(storm)
+# Only variables EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP will be used in the analysis.
+# FATALITIES and INJURIES are variables related to harm caused to population health and PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP are related to economic consequences.
+```
+### Data Processing to Question 1
+```{r, echo=TRUE}
+# Fatalities and Injuries were aggregated by event type (EVTYPE)
+stormPopHealth <- storm %>% group_by(EVTYPE) %>% summarise(TotalFatalities = sum(FATALITIES), TotalInjuries = sum(INJURIES))
+# Checking total number of fatalities and injuries.
+sum(stormPopHealth$TotalFatalities)
+sum(stormPopHealth$TotalInjuries)
+# Sort event type (EVTYPE) by most fatalities and most injuries. 
+stormPopHealth2 <- stormPopHealth[order(-stormPopHealth$TotalFatalities, -stormPopHealth$TotalInjuries),]
+# Analysing total number of fatalities and injuries.
+head(stormPopHealth2, 10)
+sum(stormPopHealth2$TotalFatalities[1:10])/sum(stormPopHealth$TotalFatalities)
+sum(stormPopHealth2$TotalInjuries[1:10])/sum(stormPopHealth$TotalInjuries)
+stormPopHealth3 <- stormPopHealth2[1:10,]
+```
+### Data Processing to Question 2
+```{r, echo=TRUE}
+# Checking the PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP variables
+summary(storm$PROPDMGEXP)
+summary(storm$CROPDMGEXP)
+str(storm$PROPDMG)
+str(storm$CROPDMG)
+# Crop and Property Damage are expressed with numerical values while PROPDMGEXP and CROPDMGEXP are expressed with letters. Most of the letters are K, M and B which, according to NOAA documentation, mean, respectively, thousands, millions and billions.
+```
+A subset was created with only the variables EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP.
+```{r, echo=TRUE}
+stormEconomic <- subset(storm, select = c(EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP))
+```
+Converting PROPDMGEXP and CROPDMGEXP into characters
+```{r, echo=TRUE}
+stormEconomic[,c(3,5)] %>% mutate_if(is.factor, as.character) -> stormEconomic2
+stormEconomic$PROPDMGEXP <- stormEconomic2$PROPDMGEXP
+stormEconomic$CROPDMGEXP <- stormEconomic2$CROPDMGEXP
+```
+Moreover, only the observations in which PROPDMGEXP or CROPDMGEXP were expressed as k, K, m, M, b, B were selected.
+```{r, echo=TRUE}
+stormCropEconomic <- stormEconomic[(stormEconomic$CROPDMGEXP == "k" | stormEconomic$CROPDMGEXP == "K" | stormEconomic$CROPDMGEXP == "m" | stormEconomic$CROPDMGEXP == "M"| stormEconomic$CROPDMGEXP == "B"),]
+stormPropertyEconomic <- stormEconomic[(stormEconomic$PROPDMGEXP == "K" | stormEconomic$PROPDMGEXP == "m" | stormEconomic$PROPDMGEXP == "M"| stormEconomic$PROPDMGEXP == "B"),]
+```
+Subsetting the dataset only to include the relevant columns
+```{r, echo=TRUE}
+stormCropEconomic <- stormCropEconomic[,c(1,4,5)]
+stormPropertyEconomic <- stormPropertyEconomic[,c(1,2,3)]
+```
+Substitute letters k, K, m, M, b, B in PROPDMGEXP and CROPDMGEXP for values 
+```{r, echo=TRUE}
+stormCropEconomic$VALUE <- as.numeric(c("B" = "1000000000", "k" = "1000", "K" = "1000", "m" = "1000000", "M" = "1000000")[stormCropEconomic$CROPDMGEXP])
+stormPropertyEconomic$VALUE <- as.numeric(c("B" = "1000000000", "k" = "1000", "K" = "1000", "m" = "1000000", "M" = "1000000")[stormPropertyEconomic$PROPDMGEXP])
+```
+Multiply the values by PROPDMG and CROPDMG
+```{r, echo=TRUE}
+stormCropEconomic$TotalValue <- stormCropEconomic$CROPDMG*stormCropEconomic$VALUE
+stormPropertyEconomic$TotalValue <- stormPropertyEconomic$PROPDMG*stormPropertyEconomic$VALUE
+```
+Aggregate by event type (EVTYPE) 
+```{r, echo=TRUE}
+stormCropEconomic2 <- stormCropEconomic %>% group_by(EVTYPE) %>% summarise(TotalDamagePerTypeEvent = sum(TotalValue))
+stormCropEconomic2 <- stormCropEconomic %>% group_by(EVTYPE) %>% summarise(TotalDamagePerTypeEvent = sum(TotalValue))
+stormPropertyEconomic2 <- stormPropertyEconomic %>% group_by(EVTYPE) %>% summarise(TotalDamagePerTypeEvent = sum(TotalValue))
+```
+Sort event type (EVTYPE) by highest total damage. 
+```{r, echo=TRUE}
+stormCropEconomic3 <- stormCropEconomic2[order(-stormCropEconomic2$TotalDamagePerTypeEvent),]
+stormPropertyEconomic3 <- stormPropertyEconomic2[order(-stormPropertyEconomic2$TotalDamagePerTypeEvent),]
+```
+Analysing total damage cost per type of event.
+```{r, echo=TRUE}
+sum(stormCropEconomic3$TotalDamagePerTypeEvent[1:10])/sum(stormCropEconomic3$TotalDamagePerTypeEvent)
+sum(stormPropertyEconomic3$TotalDamagePerTypeEvent[1:10])/sum(stormPropertyEconomic3$TotalDamagePerTypeEvent)
+stormCropEconomic4 <- stormCropEconomic3[1:10,]
+stormPropertyEconomic4 <- stormPropertyEconomic3[1:10,]
+```
+## Results
+### Types of events most harmful with respect to population health
+Total Fatalities
+```{r, echo=TRUE}
+op <- par(mar=c(11,4,4,2))
+barplot( height= stormPopHealth3$TotalFatalities, names.arg=stormPopHealth3$EVTYPE, horiz=F, las=2,col="skyblue", main="Total Fatalities per Event Type")
+rm(op)
+```
+Total Injuries
+```{r, echo=TRUE}
+op <- par(mar=c(11,4,4,2))
+barplot( height= stormPopHealth3$TotalInjuries, names.arg=stormPopHealth3$EVTYPE, horiz=F, las=2,col="skyblue", main="Total Injuries per Event Type")
+rm(op)
+```
+### Types of events with the greatest economic consequences
+Total Crop Damage in US Dollars
+```{r, echo=TRUE}
+stormCropEconomic4
+```
+Total Property Damage in US Dollars
+```{r, echo=TRUE}
+stormPropertyEconomic4
+```

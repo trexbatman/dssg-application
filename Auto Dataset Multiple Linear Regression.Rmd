@@ -1,0 +1,64 @@
+---
+title: "Analysis of the relationship between transmission and MPG (miles per gallon)"
+author: "Agatha"
+date: "6/22/2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Executive Summary
+This work seeks to answer the following two questions using the "mtcars" data set:   
+1. “Is an automatic or manual transmission better for MPG”  
+2. "Quantify the MPG difference between automatic and manual transmissions". 
+
+### Exploratory Data Analysis   
+Load the required data set    
+``` {r libraries, echo=TRUE, warning=FALSE}
+str(mtcars)
+cars <- mtcars
+```
+The data set is a data frame with 32 observations on 11 (numeric) variables  
+[, 1]	mpg	Miles/(US) gallon  
+[, 2]	cyl	Number of cylinders  
+[, 3]	disp	Displacement (cu.in.)  
+[, 4]	hp	Gross horsepower  
+[, 5]	drat	Rear axle ratio  
+[, 6]	wt	Weight (1000 lbs)  
+[, 7]	qsec	1/4 mile time  
+[, 8]	vs	Engine (0 = V-shaped, 1 = straight)  
+[, 9]	am	Transmission (0 = automatic, 1 = manual)  
+[,10]	gear	Number of forward gears  
+[,11]	carb	Number of carburetors  
+An exploratory graph was produced (see Appendix). It shows automatic cars have lower MPG while manual cars have higher MPG, but also greater variance. Checking the correlation of MPG with all variables of the data set it is possible to see the highest correlations are with cyl (-0.852162), disp (-0.8475514) and wt (-0.8676594). The correlation with am is not as high (0.5998324).
+``` {r, echo=TRUE, warning=FALSE}
+cor(cars$mpg, cars)
+```
+  
+### Model Selection  
+The first model with be a linear regression of mpg and am (mode of transmission). The second will add the three other variables that have a high correlation with mpg (cyl, disp and wt). In the third, mode of transmission will be excluded from the modelling.  
+``` {r, echo=TRUE, warning=FALSE}
+model1 <- lm(mpg ~ am, cars)
+model2 <- lm(mpg ~ am + wt + cyl + disp, cars)
+model3 <- lm(mpg ~ wt + cyl + disp, cars)
+```
+A summary of the three models is shown in the appendix.  
+Model 1 has the lowest adjusted R-squared (0.3385) and helps to explain only 33.85% of the points in the data. Model 2 and 3 have similar adjusted R-squared (0.8079) and (0.8147). Model 2 will be selected to answer the questions of the assignment because it fits the data points better than model 1 and has am (mode of transmission) as one of the variables (model 3 does not).  
+
+### Results  
+Answer to questions 1 and 2: According to the selected model (model 2), a change from 0 (automatic car) to 1 (manual car) will change the mpg in 0.129066 (coefficient for am in model2), signaling manual cars are better for mpg. However, as shown above the p-value for this variable is 0.92292, which is outside of the 5% threshold, indicating this observation has no statistical significance.  
+
+### Appendix  
+``` {r, echo=TRUE, warning=FALSE}
+#Exploratory graph 
+plot(cars$mpg, cars$am, main = "MPG per mode of transmission", ylab = "Manual cars (1) and Automatic cars (0)", xlab = "MPG")
+# Model selection
+summary(model1)
+summary(model2)
+summary(model3)
+#Predictions and Residuals plot
+plot(predict(model2), resid(model2), xlab = "Model Predictions", ylab = "Model Residuals", main = "Model Predictions and Residuals for the selected model (model 2)")
+```
